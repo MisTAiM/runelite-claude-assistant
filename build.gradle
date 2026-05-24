@@ -6,11 +6,19 @@ plugins {
 group = 'com.claudeassistant'
 version = '1.0.0'
 
+// ── Configure where your RuneLite checkout lives ─────────────────────────────
+// Override on the command line: gradle deployToRunelite -PruneliteDir=D:/dev/runelite
+def runeliteDir = project.findProperty('runeliteDir')
+    ?: "${System.getProperty('user.home')}/runelite".replace('\\', '/')
+
+def pluginPackagePath = 'net/runelite/client/plugins/claudeassistant'
+def runelitePluginSrc  = "${runeliteDir}/runelite-client/src/main/java/${pluginPackagePath}"
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 repositories {
     mavenCentral()
-    maven {
-        url = 'https://repo.runelite.net'
-    }
+    maven { url = 'https://repo.runelite.net' }
 }
 
 dependencies {
@@ -27,4 +35,78 @@ java {
 
 shadowJar {
     archiveClassifier.set('')
+}
+
+// ── deployToRunelite ─────────────────────────────────────────────────────────
+// Copies plugin source files into your RuneLite checkout so the next
+// `./gradlew :runelite-client:run` picks them up automatically.
+task deployToRunelite(type: Copy) {
+    description = 'Copy plugin sources into your RuneLite checkout'
+    group = 'RuneLite'
+
+    from("src/main/java/${pluginPackagePath}") {
+        include '**/*.java'
+    }
+    into runelitePluginSrc
+
+    doFirst {
+        def dest = file(runelitePluginSrc)
+        if (!file(runeliteDir).exists()) {
+            throw new GradleException(
+                "\n\n  RuneLite checkout not found at: ${runeliteDir}\n" +
+                "  Clone it first:  git clone https://github.com/runelite/runelite\n" +
+                "  Or pass the path: gradle deployToRunelite -PruneliteDir=C:/path/to/runelite\n"
+            )
+        }
+        dest.mkdirs()
+        println "\n  Deploying to: ${dest.absolutePath}\n"
+    }
+
+    doLast {
+        println "  ✔ Plugin sources deployed. Run 'gradle runDev' to launch RuneLite.\n"
+    }
+}
+
+// ── runDev ───────────────────────────────────────────────────────────────────
+// Deploys the plugin then launches RuneLite client from source in one step.
+task runDev(dependsOn: deployToRunelite) {
+    description = 'Deploy plugin and launch RuneLite dev client'
+    group = 'RuneLite'
+
+    doLast {
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def gradleWrapper = isWindows ? 'gradlew.bat' : './gradlew'
+
+        println "  Launching RuneLite from ${runeliteDir}...\n"
+
+        exec {
+            workingDir runeliteDir
+            commandLine isWindows
+                ? ['cmd', '/c', gradleWrapper, ':runelite-client:run', '--stacktrace']
+                : [gradleWrapper, ':runelite-client:run', '--stacktrace']
+        }
+    }
+}
+
+// ── verifySetup ──────────────────────────────────────────────────────────────
+// Quick sanity check - confirms RuneLite dir exists and plugin slot is writable.
+task verifySetup {
+    description = 'Check that your RuneLite checkout is reachable'
+    group = 'RuneLite'
+
+    doLast {
+        def dir = file(runeliteDir)
+        println "\n  RuneLite dir : ${runeliteDir}"
+        println "  Exists       : ${dir.exists()}"
+
+        if (dir.exists()) {
+            def pluginsDir = file("${runeliteDir}/runelite-client/src/main/java/net/runelite/client/plugins")
+            println "  Plugins dir  : ${pluginsDir.exists() ? 'found ✔' : 'NOT FOUND ✘'}"
+            def claudeDir  = file(runelitePluginSrc)
+            println "  Plugin slot  : ${claudeDir.exists() ? 'already deployed ✔' : 'not yet deployed'}"
+        } else {
+            println "\n  ✘ Directory not found. Clone RuneLite or set -PruneliteDir=<path>"
+        }
+        println ""
+    }
 }
