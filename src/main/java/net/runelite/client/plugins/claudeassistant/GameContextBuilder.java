@@ -54,7 +54,7 @@ public class GameContextBuilder
             sb.append("\nSkill Levels:\n");
             for (Skill skill : Skill.values())
             {
-                if (skill == Skill.OVERALL) continue;
+                
                 int real    = client.getRealSkillLevel(skill);
                 int boosted = client.getBoostedSkillLevel(skill);
                 if (boosted != real)
