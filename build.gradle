@@ -110,3 +110,50 @@ task verifySetup {
         println ""
     }
 }
+
+// ── updatePlugin ─────────────────────────────────────────────────────────────
+// Pulls latest plugin source from GitHub, then deploys to RuneLite checkout.
+// Usage: gradle updatePlugin  (or updatePlugin -PruneliteDir=D:/path/to/runelite)
+task updatePlugin(dependsOn: deployToRunelite) {
+    description = 'Pull latest plugin from GitHub then deploy to RuneLite'
+    group = 'RuneLite'
+
+    doFirst {
+        def projectDir = project.projectDir.absolutePath
+        def isWindows  = System.getProperty('os.name').toLowerCase().contains('windows')
+
+        println "\n  Pulling latest from GitHub...\n"
+
+        exec {
+            workingDir projectDir
+            commandLine isWindows
+                ? ['cmd', '/c', 'git', 'pull', 'origin', 'main']
+                : ['git', 'pull', 'origin', 'main']
+        }
+    }
+
+    doLast {
+        println "  ✔ Updated and deployed. Restart RuneLite to load changes.\n"
+    }
+}
+
+// ── updateAndRun ──────────────────────────────────────────────────────────────
+// Pull latest, deploy, AND launch RuneLite — the full update cycle in one shot.
+task updateAndRun(dependsOn: updatePlugin) {
+    description = 'Pull latest from GitHub, deploy, and launch RuneLite'
+    group = 'RuneLite'
+
+    doLast {
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def gradleWrapper = isWindows ? 'gradlew.bat' : './gradlew'
+
+        println "  Launching RuneLite...\n"
+
+        exec {
+            workingDir runeliteDir
+            commandLine isWindows
+                ? ['cmd', '/c', gradleWrapper, ':runelite-client:run']
+                : [gradleWrapper, ':runelite-client:run']
+        }
+    }
+}
