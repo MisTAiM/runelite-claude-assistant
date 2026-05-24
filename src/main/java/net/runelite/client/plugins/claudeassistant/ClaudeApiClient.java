@@ -73,7 +73,7 @@ public class ClaudeApiClient
         body.addProperty("system", SYSTEM_PROMPT);
         body.add("messages", messages);
 
-        RequestBody requestBody = RequestBody.create(gson.toJson(body), JSON);
+        RequestBody requestBody = RequestBody.create(JSON, gson.toJson(body));
 
         Request request = new Request.Builder()
             .url(API_URL)
