@@ -22,6 +22,7 @@ $RuneliteDir  = "$env:USERPROFILE\runelite"
 $PluginDir    = "$env:USERPROFILE\runelite-claude-assistant"
 $PluginGitUrl = "https://github.com/MisTAiM/runelite-claude-assistant.git"
 $RuneliteUrl  = "https://github.com/runelite/runelite.git"
+$JarPattern   = "$RuneliteDir\runelite-client\build\libs\client-*-shadow.jar"
 
 # ── 1. Check Git ──────────────────────────────────────────────────────────────
 Write-Step "Checking for Git..."
@@ -30,15 +31,13 @@ try {
     Write-OK "Git found: $gitVersion"
 } catch {
     Write-Fail "Git not found!"
-    Write-Host ""
     Write-Host "  Install Git from: https://git-scm.com/download/win" -ForegroundColor Yellow
-    Write-Host "  Then re-run this script." -ForegroundColor Yellow
     Read-Host "`n  Press Enter to open download page..."
     Start-Process "https://git-scm.com/download/win"
     exit 1
 }
 
-# ── 3. Clone plugin repo ──────────────────────────────────────────────────────
+# ── 2. Clone plugin repo ──────────────────────────────────────────────────────
 Write-Step "Setting up Claude Assistant plugin..."
 if (Test-Path "$PluginDir\.git") {
     Write-OK "Plugin repo already exists - pulling latest..."
@@ -50,59 +49,61 @@ if (Test-Path "$PluginDir\.git") {
     Write-OK "Plugin cloned to: $PluginDir"
 }
 
-# ── 4. Clone RuneLite source ──────────────────────────────────────────────────
+# ── 3. Clone RuneLite source ──────────────────────────────────────────────────
 Write-Step "Setting up RuneLite source..."
 if (Test-Path "$RuneliteDir\.git") {
-    Write-OK "RuneLite already cloned - skipping (use 'git pull' in $RuneliteDir to update)"
+    Write-OK "RuneLite already cloned at $RuneliteDir"
 } else {
-    Write-Host "  Cloning RuneLite (this is ~150MB, may take a few minutes)..." -ForegroundColor Gray
+    Write-Host "  Cloning RuneLite (~150MB, may take a few minutes)..." -ForegroundColor Gray
     git clone --depth=1 $RuneliteUrl $RuneliteDir
     Write-OK "RuneLite cloned to: $RuneliteDir"
 }
 
-# ── 5. Deploy plugin into RuneLite ────────────────────────────────────────────
+# ── 4. Deploy plugin into RuneLite ────────────────────────────────────────────
 Write-Step "Deploying plugin into RuneLite source tree..."
 $src  = "$PluginDir\src\main\java\net\runelite\client\plugins\claudeassistant"
 $dest = "$RuneliteDir\runelite-client\src\main\java\net\runelite\client\plugins\claudeassistant"
-
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 Copy-Item "$src\*.java" $dest -Force
-Write-OK "Plugin sources deployed to RuneLite"
+Write-OK "Plugin sources deployed"
 
-# ── 6. First build check ──────────────────────────────────────────────────────
-Write-Step "Verifying RuneLite can find the plugin (compiling)..."
+# ── 5. Build shadow jar ───────────────────────────────────────────────────────
+Write-Step "Building RuneLite + Claude plugin (this takes a few minutes first time)..."
 Set-Location $RuneliteDir
-try {
-    .\gradlew.bat :client:compileJava --quiet 2>&1 | Tail -5
-    Write-OK "Compile successful - plugin is wired in correctly"
-} catch {
-    Write-Warn "Compile had warnings/errors - see output above"
-    Write-Host "  This is sometimes normal on first run due to Gradle downloading deps." -ForegroundColor Gray
+.\gradlew.bat :client:shadowJar
+if ($LASTEXITCODE -ne 0) {
+    Write-Fail "Build failed. See output above."
+    Read-Host "Press Enter to exit"
+    exit 1
 }
+Write-OK "Build successful"
 
-# ── 7. Create desktop shortcuts ───────────────────────────────────────────────
+# ── 6. Create desktop shortcuts ───────────────────────────────────────────────
 Write-Step "Creating desktop shortcuts..."
-
 $WshShell = New-Object -ComObject WScript.Shell
 $Desktop  = [System.Environment]::GetFolderPath("Desktop")
 
-# Shortcut: Launch RuneLite with Claude plugin
+# Find the built jar
+$jar = (Get-Item $JarPattern | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+Write-OK "Found jar: $jar"
+
+# Launch shortcut
 $sc = $WshShell.CreateShortcut("$Desktop\RuneLite + Claude.lnk")
-$sc.TargetPath       = "cmd.exe"
-$sc.Arguments        = "/c cd /d `"$RuneliteDir`" && gradlew.bat :client:run"
+$sc.TargetPath       = "javaw.exe"
+$sc.Arguments        = "-jar `"$jar`""
 $sc.WorkingDirectory = $RuneliteDir
 $sc.WindowStyle      = 1
 $sc.Description      = "Launch RuneLite with Claude Assistant plugin"
 $sc.Save()
 Write-OK "Desktop shortcut created: 'RuneLite + Claude'"
 
-# Shortcut: Update plugin
+# Update shortcut
 $sc2 = $WshShell.CreateShortcut("$Desktop\Update Claude Plugin.lnk")
-$sc2.TargetPath       = "cmd.exe"
-$sc2.Arguments        = "/k cd /d `"$PluginDir`" && gradlew.bat updatePlugin -PruneliteDir=`"$RuneliteDir`""
+$sc2.TargetPath       = "powershell.exe"
+$sc2.Arguments        = "-NoExit -Command `"cd '$PluginDir'; git pull origin main; Copy-Item 'src\main\java\net\runelite\client\plugins\claudeassistant\*.java' '$dest' -Force; cd '$RuneliteDir'; .\gradlew.bat :client:shadowJar; Write-Host 'Done! Relaunch RuneLite + Claude.' -ForegroundColor Green`""
 $sc2.WorkingDirectory = $PluginDir
 $sc2.WindowStyle      = 1
-$sc2.Description      = "Pull latest Claude plugin from GitHub and deploy"
+$sc2.Description      = "Pull latest Claude plugin and rebuild"
 $sc2.Save()
 Write-OK "Desktop shortcut created: 'Update Claude Plugin'"
 
@@ -114,15 +115,16 @@ Write-Host "  ================================================" -ForegroundColor
 Write-Host ""
 Write-Host "  Next steps:" -ForegroundColor White
 Write-Host "   1. Double-click 'RuneLite + Claude' on your desktop" -ForegroundColor Gray
-Write-Host "   2. Wait for RuneLite to compile + launch (~2 min first time)" -ForegroundColor Gray
-Write-Host "   3. In RuneLite: Config -> Claude Assistant -> paste your API key" -ForegroundColor Gray
+Write-Host "   3. Config (wrench icon) -> Claude Assistant -> paste your Anthropic API key" -ForegroundColor Gray
 Write-Host "   4. Click the red C icon in the sidebar and start chatting" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Plugin repo : $PluginDir" -ForegroundColor DarkGray
 Write-Host "  RuneLite    : $RuneliteDir" -ForegroundColor DarkGray
+Write-Host "  Built jar   : $jar" -ForegroundColor DarkGray
 Write-Host ""
 
-Read-Host "  Press Enter to launch RuneLite now (or close to launch later)"
-
-Set-Location $RuneliteDir
-.\gradlew.bat :client:run
+$launch = Read-Host "  Launch RuneLite now? (y/n)"
+if ($launch -eq 'y' -or $launch -eq 'Y') {
+    Write-Host "`n  Launching..." -ForegroundColor Cyan
+    Start-Process "javaw.exe" -ArgumentList "-jar `"$jar`""
+}

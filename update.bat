@@ -1,38 +1,24 @@
 @echo off
 setlocal
-
-:: ============================================================
-::  Claude Assistant - Update from GitHub + Deploy + Launch
-:: ============================================================
-
 set RUNELITE_DIR=%USERPROFILE%\runelite
+set PLUGIN_DIR=%USERPROFILE%\runelite-claude-assistant
+set SRC=%PLUGIN_DIR%\src\main\java\net\runelite\client\plugins\claudeassistant
+set DEST=%RUNELITE_DIR%\runelite-client\src\main\java\net\runelite\client\plugins\claudeassistant
 
 echo.
-echo  Claude Assistant - Update ^& Launch
-echo  =====================================
-echo  Pulling latest from GitHub...
-echo.
-
+echo  Pulling latest plugin from GitHub...
+cd /d "%PLUGIN_DIR%"
 git pull origin main
-if %ERRORLEVEL% neq 0 (
-    echo  Git pull failed. Are you in the right directory?
-    pause
-    exit /b 1
-)
 
-echo.
-echo  Deploying to RuneLite...
-call gradlew.bat updatePlugin -PruneliteDir="%RUNELITE_DIR%"
+echo  Deploying updated sources...
+xcopy /y /q "%SRC%\*.java" "%DEST%\" > nul
 
-if %ERRORLEVEL% neq 0 (
-    echo  Deploy failed.
-    pause
-    exit /b 1
-)
-
-echo.
-echo  Launching RuneLite...
+echo  Rebuilding...
 cd /d "%RUNELITE_DIR%"
-call gradlew.bat :client:run
+call gradlew.bat :client:shadowJar
+if %ERRORLEVEL% neq 0 ( echo  Build failed. & pause & exit /b 1 )
 
+echo.
+echo  Update complete! Relaunch 'RuneLite + Claude' from your desktop.
+pause
 endlocal
