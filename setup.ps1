@@ -38,25 +38,6 @@ try {
     exit 1
 }
 
-# ── 2. Check Java ─────────────────────────────────────────────────────────────
-Write-Step "Checking for Java 11+..."
-try {
-    $javaVersion = java -version 2>&1 | Select-String "version"
-    Write-OK "Java found: $javaVersion"
-} catch {
-    Write-Warn "Java not found - installing via winget..."
-    try {
-        winget install --id Microsoft.OpenJDK.11 --silent --accept-package-agreements --accept-source-agreements
-        Write-OK "Java 11 installed"
-    } catch {
-        Write-Fail "Could not auto-install Java."
-        Write-Host "  Download from: https://adoptium.net/temurin/releases/?version=11" -ForegroundColor Yellow
-        Read-Host "`n  Press Enter to open download page..."
-        Start-Process "https://adoptium.net/temurin/releases/?version=11"
-        exit 1
-    }
-}
-
 # ── 3. Clone plugin repo ──────────────────────────────────────────────────────
 Write-Step "Setting up Claude Assistant plugin..."
 if (Test-Path "$PluginDir\.git") {
