@@ -33,6 +33,6 @@ if %ERRORLEVEL% neq 0 (
 echo.
 echo  Launching RuneLite...
 cd /d "%RUNELITE_DIR%"
-call gradlew.bat :runelite-client:run
+call gradlew.bat :client:run
 
 endlocal

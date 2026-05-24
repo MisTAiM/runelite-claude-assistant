@@ -43,6 +43,6 @@ echo  (This will take a minute on first run while Gradle downloads dependencies)
 echo.
 
 cd /d "%RUNELITE_DIR%"
-call gradlew.bat :runelite-client:run
+call gradlew.bat :client:run
 
 endlocal

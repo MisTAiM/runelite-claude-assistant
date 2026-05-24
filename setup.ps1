@@ -73,7 +73,7 @@ Write-OK "Plugin sources deployed to RuneLite"
 Write-Step "Verifying RuneLite can find the plugin (compiling)..."
 Set-Location $RuneliteDir
 try {
-    .\gradlew.bat :runelite-client:compileJava --quiet 2>&1 | Tail -5
+    .\gradlew.bat :client:compileJava --quiet 2>&1 | Tail -5
     Write-OK "Compile successful - plugin is wired in correctly"
 } catch {
     Write-Warn "Compile had warnings/errors - see output above"
@@ -89,7 +89,7 @@ $Desktop  = [System.Environment]::GetFolderPath("Desktop")
 # Shortcut: Launch RuneLite with Claude plugin
 $sc = $WshShell.CreateShortcut("$Desktop\RuneLite + Claude.lnk")
 $sc.TargetPath       = "cmd.exe"
-$sc.Arguments        = "/c cd /d `"$RuneliteDir`" && gradlew.bat :runelite-client:run"
+$sc.Arguments        = "/c cd /d `"$RuneliteDir`" && gradlew.bat :client:run"
 $sc.WorkingDirectory = $RuneliteDir
 $sc.WindowStyle      = 1
 $sc.Description      = "Launch RuneLite with Claude Assistant plugin"
@@ -125,4 +125,4 @@ Write-Host ""
 Read-Host "  Press Enter to launch RuneLite now (or close to launch later)"
 
 Set-Location $RuneliteDir
-.\gradlew.bat :runelite-client:run
+.\gradlew.bat :client:run

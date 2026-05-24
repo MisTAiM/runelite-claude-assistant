@@ -39,7 +39,7 @@ shadowJar {
 
 // ── deployToRunelite ─────────────────────────────────────────────────────────
 // Copies plugin source files into your RuneLite checkout so the next
-// `./gradlew :runelite-client:run` picks them up automatically.
+// `./gradlew :client:run` picks them up automatically.
 task deployToRunelite(type: Copy) {
     description = 'Copy plugin sources into your RuneLite checkout'
     group = 'RuneLite'
@@ -82,8 +82,8 @@ task runDev(dependsOn: deployToRunelite) {
         exec {
             workingDir runeliteDir
             commandLine isWindows
-                ? ['cmd', '/c', gradleWrapper, ':runelite-client:run', '--stacktrace']
-                : [gradleWrapper, ':runelite-client:run', '--stacktrace']
+                ? ['cmd', '/c', gradleWrapper, ':client:run', '--stacktrace']
+                : [gradleWrapper, ':client:run', '--stacktrace']
         }
     }
 }
@@ -152,8 +152,8 @@ task updateAndRun(dependsOn: updatePlugin) {
         exec {
             workingDir runeliteDir
             commandLine isWindows
-                ? ['cmd', '/c', gradleWrapper, ':runelite-client:run']
-                : [gradleWrapper, ':runelite-client:run']
+                ? ['cmd', '/c', gradleWrapper, ':client:run']
+                : [gradleWrapper, ':client:run']
         }
     }
 }
